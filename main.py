@@ -28,7 +28,7 @@ x_transforms = transforms.Compose([
 y_transforms = transforms.Compose([
     transforms.ToTensor()])
 
-
+batch_size = 3
 def train_model(model, criterion, optimizer, dataload, num_epochs=50):
     '''
         训练模型：其中包含输入图像们的重叠操作
@@ -46,6 +46,11 @@ def train_model(model, criterion, optimizer, dataload, num_epochs=50):
             inputs = []
             outputs = []
             # 切分图像导入
+
+            # mirror_img = overlap_tile(np.array(img_x), (696, 696), (92, 92))
+            # 镜像图像切片
+            # patches_img = extract_ordered_patches(mirror_img, (572, 572), (124, 124))
+
             for x in imgs:
                 inputs.append(x.to(device))
             # 输入这张图片的
@@ -89,7 +94,7 @@ def train_model(model, criterion, optimizer, dataload, num_epochs=50):
 # 训练模型
 def train():
     model = Unet(1, 2).to(device)
-    batch_size = 1
+    
     # criterion = nn.BCEWithLogitsLoss()  # sigmoid函数+交叉熵的组合，二分类
     criterion = nn.CrossEntropyLoss() # softmax+交叉熵组合， 多类
     optimizer = optim.Adam(model.parameters())

@@ -48,20 +48,21 @@ class TrainDataset(Dataset):
         # 导入x图片
         img_x = Image.open(x_path)
         # 镜像策略
-        mirror_img = overlap_tile(np.array(img_x), (696, 696), (92, 92))
+        # mirror_img = overlap_tile(np.array(img_x), (696, 696), (92, 92))
         # 镜像图像切片
-        patches_img = extract_ordered_patches(mirror_img, (572, 572), (124, 124))
+        # patches_img = extract_ordered_patches(mirror_img, (572, 572), (124, 124))
         # 导入y图片
         img_y = Image.open(y_path)
         # 输入图片的处理
         if self.transform is not None:
-            img = []
-            for i in range(patches_img.shape[0]):
-                img.append(self.transform(patches_img[i]))
+            # img_x = []
+            # for i in range(patches_img.shape[0]):
+            #     img_x.append(self.transform(patches_img[i]))\
+            img_x = self.target_transform(img_x)
         if self.target_transform is not None:
             img_y = self.target_transform(img_y)
-            img_y = torch.squeeze(img_y)
-        return img, img_y
+            # img_y = torch.squeeze(img_y)
+        return img_x, img_y
 
     def __len__(self):
         return len(self.imgs)
@@ -77,12 +78,13 @@ class TestDataset(Dataset):
     def __getitem__(self, index):
         x_path = self.imgs[index]
         img_x = Image.open(x_path)
-        mirror_img = overlap_tile(np.array(img_x), (696, 696), (92, 92))
-        patches_img = extract_ordered_patches(mirror_img, (572, 572), (124, 124))
+        # mirror_img = overlap_tile(np.array(img_x), (696, 696), (92, 92))
+        # patches_img = extract_ordered_patches(mirror_img, (572, 572), (124, 124))
         if self.transform is not None:
-            img_x = []
-            for i in range(patches_img.shape[0]):
-                img_x.append(self.transform(patches_img[i]))
+            # img_x = []
+            # for i in range(patches_img.shape[0]):
+                # img_x.append(self.transform(patches_img[i]))
+            img_x = self.target_transform(img_x)
         return img_x
 
     def __len__(self):
