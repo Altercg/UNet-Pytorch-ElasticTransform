@@ -2,6 +2,7 @@
 '''
 
 '''
+from os import XATTR_SIZE_MAX
 import torch
 from torch.utils.data import DataLoader
 from torch import nn, optim
@@ -29,6 +30,7 @@ y_transforms = transforms.Compose([
     transforms.ToTensor()])
 
 batch_size = 3
+
 def train_model(model, criterion, optimizer, dataload, num_epochs=50):
     '''
         训练模型：其中包含输入图像们的重叠操作
@@ -40,16 +42,25 @@ def train_model(model, criterion, optimizer, dataload, num_epochs=50):
         dt_size = len(dataload.dataset)
         epoch_loss = 0
         step = 0
-        for imgs, y in dataload:     # 进度条库
+        for x, y in dataload:     # 进度条库
             step += 1
             # 一张图片的patch存放处
             inputs = []
             outputs = []
             # 切分图像导入
-
-            # mirror_img = overlap_tile(np.array(img_x), (696, 696), (92, 92))
+            mirror_img = overlap_tile(x.numpy(), (696, 696), (92, 92))
             # 镜像图像切片
             # patches_img = extract_ordered_patches(mirror_img, (572, 572), (124, 124))
+            
+            # 输出看看
+            img = torch.squeeze(torch.tensor(mirror_img[0])).detach().numpy()
+            img = img[:, :, np.newaxis]
+            img = img[:, :, 0]
+            io.imsave("dataset/train/0_predict.png", img)
+            img = torch.squeeze(x[0]).detach().numpy()
+            img = img[:, :, np.newaxis]
+            img = img[:, :, 0]
+            io.imsave("dataset/train/1_predict.png", img)
 
             for x in imgs:
                 inputs.append(x.to(device))
@@ -67,14 +78,6 @@ def train_model(model, criterion, optimizer, dataload, num_epochs=50):
             outputs = rebuild_images(outputs, (512, 512), (124, 124))
             # 转为tensor之后放入cuda
             outputs = torch.tensor(outputs, requires_grad=True)
-
-            # 输出看看
-            # img = torch.squeeze(outputs).detach().numpy()
-            # # img_y = img[:, :, np.newaxis]
-            # # img_y = img_y[:, :, 0]
-            # io.imsave("dataset/train/0_predict.png", img[0])
-            # io.imsave("dataset/train/1_predict.png", img[1])
-
             output = outputs.to(device)
             # 损失和更新
             loss = criterion(output, labels.long())
