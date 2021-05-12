@@ -7,18 +7,22 @@
 '''
 
 import numpy as np
+from skimage.util.dtype import img_as_bool
 
-def overlap_tile(img, patch_size, stride_size):
+def overlap_tile(imgs, patch_size, stride_size):
     """
-        imgs 二维, 图片为灰度图像（512， 512）
-        patch_size: 镜像后图像块大小（696，696）
-        stride_size: 间隔大小（92，92）
+        imgs （B,C,H,W）（3,1,512,512）
+        patch_size: 镜像后图像块大小（696,696）
+        stride_size: 间隔大小（92,92）
         return: numpy.narray
     """
     # 确定为灰度图像
-    assert img.ndim == 2
+    assert imgs.ndim > 2
+    # batch size 为 1
+    if imgs.ndim == 3:
+        imgs = np.expand_dims(imgs, axis=0)
     # 获取宽高度
-    h, w = img.shape
+    b, c, h, w = imgs.shape
     # 镜像后图片的宽高度
     patch_h, patch_w = patch_size
     # 裁剪间隔
@@ -29,29 +33,32 @@ def overlap_tile(img, patch_size, stride_size):
     pad_h, pad_w = (stride_h - left_h) % stride_h, (stride_w - left_w) % stride_w
     if pad_h == 0:
         # 填充后的数组大小
-        pad_img = np.empty((h + stride_h * 2, w), dtype=img.dtype)
+        pad_imgs = np.empty((b, c, h + stride_h * 2, w), dtype=imgs.dtype)
         start_y = stride_h
         end_y = start_y + h
         # 多层切片,镜像
-        pad_img[start_y:end_y, :] = img
-        pad_img[:start_y, :] = img[:start_y, :][::-1]  
-        pad_img[end_y:, :] = img[h - stride_h:, :][::-1]
+        for i, img in enumerate(imgs):
+            pad_imgs[i, :, start_y:end_y, :] = img
+            pad_imgs[i, :, :start_y, :] = img[:, :start_y, :][:, ::-1]  
+            pad_imgs[i, :, end_y:, :] = img[:, h - stride_h:, :][:, ::-1]
 
-        img = pad_img
+        imgs = pad_imgs
+
     if pad_w == 0:
         # 可能垂直方向已经镜像操作导致高度改变
-        h = img.shape[0]
-        pad_img = np.empty((h, w + stride_w * 2), dtype=img.dtype)
+        h = imgs.shape[2]
+        pad_imgs = np.empty((b, c, h, w + stride_w * 2), dtype=imgs.dtype)
         start_x = stride_w
         end_x = start_x + w
+        
+        for i, img in enumerate(imgs):
+            pad_imgs[i, :, :, start_x:end_x] = img
+            pad_imgs[i, :, :, :start_x] = img[:, :, :start_x][:, :, ::-1]
+            pad_imgs[i, :, :, end_x:] = img[:, :, w - stride_w:][:, :, ::-1]
 
-        pad_img[:, start_x:end_x] = img
-        pad_img[:, :start_x] = img[:, :start_x][:, ::-1]
-        pad_img[:, end_x:] = img[:, w - stride_w:][:, ::-1]
+        imgs = pad_imgs
 
-        img = pad_img
-
-    return img
+    return imgs
 
 
 def extract_ordered_patches(img, patch_size, stride_size):
