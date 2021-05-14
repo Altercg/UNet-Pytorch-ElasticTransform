@@ -7,9 +7,9 @@
 '''
 
 import numpy as np
-from skimage.util.dtype import img_as_bool
 
-def overlap_tile(imgs, patch_size, stride_size):
+
+def mirro(imgs, patch_size, stride_size):
     """
         imgs （B,C,H,W）（3,1,512,512）
         patch_size: 镜像后图像块大小（696,696）
@@ -61,16 +61,18 @@ def overlap_tile(imgs, patch_size, stride_size):
     return imgs
 
 
-def extract_ordered_patches(img, patch_size, stride_size):
+def extract_ordered_patches(imgs, patch_size, stride_size):
     """
-        img: (696,696)
+        img: (B, C, H, W)(3, 1, 696,696)
         patch_size: 裁剪后图像块大小（572，572）
         stride_size: 间隔大小（124，124）
         return: numpy,narray
     """
-    assert img.ndim == 2
+    assert imgs.ndim > 2
+    if imgs.ndim == 3:
+        imgs = np.expand_dims(imgs, axis=0)
 
-    h, w = img.shape
+    b, c, h, w = imgs.shape
     patch_h, patch_w = patch_size
     stride_h, stride_w = stride_size
     assert (h - patch_h) % stride_h == 0 and (w-patch_w) % stride_w == 0
@@ -79,54 +81,65 @@ def extract_ordered_patches(img, patch_size, stride_size):
     n_patches_y = (h - patch_h) // stride_h + 1
     # x方向上的切片数
     n_patches_x = (w - patch_w) // stride_w + 1
+    # 每张图片上的切片数
     n_patches_per_img = n_patches_y * n_patches_x
-    # n_patches = n_patches_per_img * b
-    patches = np.empty((n_patches_per_img, patch_h, patch_w), dtype=img.dtype)
+    # 所有切片数
+    n_patches = n_patches_per_img * b
+    patches = np.empty((n_patches, c, patch_h, patch_w), dtype=imgs.dtype)
     patche_idx = 0
-    # 第i列
-    for i in range(n_patches_y):
-        # 第j行
-        for j in range(n_patches_x):
-            y1 = i * stride_h
-            y2 = y1 + patch_h
-            x1 = j * stride_w
-            x2 = x1 + patch_w
-            patches[patche_idx] = img[y1:y2, x1:x2]
-            patche_idx += 1
+    # 拿出一张图片
+    for img in imgs:
+        # 第i列
+        for i in range(n_patches_y):
+            # 第j行
+            for j in range(n_patches_x):
+                y1 = i * stride_h
+                y2 = y1 + patch_h
+                x1 = j * stride_w
+                x2 = x1 + patch_w
+                patches[patche_idx] = img[:, y1:y2, x1:x2]
+                patche_idx += 1
     # [左上, 右上, 左下, 右下]
     return patches
 
 
 def rebuild_images(patches, img_size, stride_size):
     """
-        patches: 切片（4, 1, 2, 388, 388）
+        patches: 切片（4*batch, 2, 388, 388）
         img_size: 组合后的图像大小（512，512）
         stride_size:(124, 124)
-    """
-    assert patches.ndim == 5
+    """    
+    assert patches.ndim == 4
     img_h, img_w = img_size
     stride_h, stride_w = stride_size
     n_patches = patches.shape[0] 
-    patch_h = patches.shape[3]
-    patch_w = patches.shape[4]
+    c = patches.shape[1]
+    patch_h = patches.shape[2]
+    patch_w = patches.shape[3]
 
     assert (img_h - patch_h) % stride_h == 0 and (img_w - patch_w) % stride_w == 0
     n_patches_y = (img_h - patch_h) // stride_h + 1
     n_patches_x = (img_w - patch_w) // stride_w + 1
-
-    imgs = np.zeros((1, 2, img_h, img_w))
+    n_patches_per_img = n_patches_y * n_patches_x
+    # 计算出batch数目
+    batch_size = n_patches // n_patches_per_img
+    imgs = np.zeros((batch_size, c, img_h, img_w))
     # 图像块之间存在重叠，需要处以重复的次数取平均
     weights = np.zeros_like(imgs)
     # 第img_idx号图
-    img_idx = 0
-    for i in range(n_patches_y):
-        for j in range(n_patches_x):
-            y1 = i * stride_h
-            y2 = y1 + patch_h
-            x1 = j * stride_w
-            x2 = x1 + patch_w
-            imgs[:, :, y1:y2, x1:x2] += patches[img_idx]
-            weights[:, :, y1:y2, x1:x2] += 1
-            img_idx += 1
+    for img_idx, (img, weights) in enumerate(zip(imgs, weights)):
+        # 在imgs的实际下标
+        start = img_idx * n_patches_per_img
+        # 所在列
+        for i in range(n_patches_y):
+            # 所在行
+            for j in range(n_patches_x):
+                y1 = i * stride_h
+                y2 = y1 + patch_h
+                x1 = j * stride_w
+                x2 = x1 + patch_w
+                patch_idx = start + i * n_patches_x + j
+                img[:, y1:y2, x1:x2] += patches[patch_idx]
+                weights[:, y1:y2, x1:x2] += 1
     imgs /= weights
     return imgs.astype(patches.dtype)
