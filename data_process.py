@@ -9,7 +9,7 @@ import PIL.Image as Image
 import os
 import numpy as np
 import torchvision.transforms as transforms
-from overlap_tile import overlap_tile, extract_ordered_patches
+#from overlap_tile import overlap_tile, extract_ordered_patches
 import torch
 
 

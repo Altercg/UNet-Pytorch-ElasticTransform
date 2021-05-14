@@ -49,15 +49,15 @@ def train_model(model, criterion, optimizer, dataload, num_epochs=50):
             patches_img = extract_ordered_patches(mirror_img, (572, 572), (124, 124))
             
             # 输出看看
-            # img = torch.squeeze(torch.tensor(mirror_img[0])).detach().numpy()
-            # img = img[:, :, np.newaxis]
-            # img = img[:, :, 0]
-            # io.imsave("dataset/train/mirro.png", img)
+            img = torch.squeeze(torch.tensor(mirror_img[0])).detach().numpy()
+            img = img[:, :, np.newaxis]
+            img = img[:, :, 0]
+            io.imsave("dataset/train/mirro.png", img)
             
-            # img = torch.squeeze(torch.tensor(x[0].numpy())).detach().numpy()
-            # img = img[:, :, np.newaxis]
-            # img = img[:, :, 0]
-            # io.imsave("dataset/train/raw.png", img)
+            img = torch.squeeze(torch.tensor(x[0].numpy())).detach().numpy()
+            img = img[:, :, np.newaxis]
+            img = img[:, :, 0]
+            io.imsave("dataset/train/raw.png", img)
             
             inputs = [] 
             outputs = []
@@ -77,15 +77,21 @@ def train_model(model, criterion, optimizer, dataload, num_epochs=50):
             output = rebuild_images(outputs, (512, 512), (124, 124))# (b,c,h,w)
 
             # 输出看看
-            # img = torch.squeeze(torch.tensor(output[0])).detach().numpy()
-            # img = img[:, :, np.newaxis]
-            # img = img[:, :, 0]
-            # io.imsave("dataset/train/train.png", img)
+            img = torch.squeeze(torch.tensor(output[0])).detach().numpy()
+            img = img[:, :, np.newaxis]
+            img = img[:, :, 0]
+            io.imsave("dataset/train/train.png", img)
+
+            # 输出看看
+            img = torch.squeeze(torch.tensor(y[0].numpy())).detach().numpy()
+            img = img[:, :, np.newaxis]
+            img = img[:, :, 0]
+            io.imsave("dataset/train/label.png", img)
 
             # 转为tensor之后放入cuda
             output = torch.tensor(output, requires_grad=True)
             output = output.to(device)
-
+            
             # 输入这张图片的
             labels = y.to(device)
             # zero the parameter gradients
