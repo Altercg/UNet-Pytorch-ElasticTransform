@@ -21,7 +21,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 x_transforms = transforms.Compose([
     transforms.ToTensor(),
-    transforms.Normalize([0.5], [0.5])])
+    transforms.Normalize(mean=[0.5], std=[0.5])])
 
 # mask只需要转换为tensor
 y_transforms = transforms.Compose([
@@ -41,23 +41,23 @@ def train_model(model, criterion, optimizer, dataload, num_epochs=50):
         # dt_size = len(dataload.dataset)
         epoch_loss = 0
         step = 0
-        for x, y in tqdm(dataload):     # 进度条库
+        for x, y in dataload:     # 进度条库
             step += 1
             # 切分图像导入 return (b,c,h,w)
             mirror_img = mirro(x.numpy(), (696, 696), (92, 92))
             # 镜像图像切片  return (n_pathces,c,h,w)
             patches_img = extract_ordered_patches(mirror_img, (572, 572), (124, 124))
             
-            # 输出看看
-            img = torch.squeeze(torch.tensor(mirror_img[0])).detach().numpy()
-            img = img[:, :, np.newaxis]
-            img = img[:, :, 0]
-            io.imsave("dataset/train/mirro.png", img)
+            # # 输出看看
+            # img = torch.squeeze(torch.tensor(mirror_img[0])).detach().numpy()
+            # img = img[:, :, np.newaxis]
+            # img = img[:, :, 0]
+            # io.imsave("dataset/train/mirro.png", img)
             
-            img = torch.squeeze(torch.tensor(x[0].numpy())).detach().numpy()
-            img = img[:, :, np.newaxis]
-            img = img[:, :, 0]
-            io.imsave("dataset/train/raw.png", img)
+            # img = torch.squeeze(torch.tensor(x[0].numpy())).detach().numpy()
+            # img = img[:, :, np.newaxis]
+            # img = img[:, :, 0]
+            # io.imsave("dataset/train/raw.png", img)
             
             inputs = [] 
             outputs = []
@@ -76,17 +76,22 @@ def train_model(model, criterion, optimizer, dataload, num_epochs=50):
             outputs = np.array(outputs)
             output = rebuild_images(outputs, (512, 512), (124, 124))# (b,c,h,w)
 
-            # 输出看看
-            img = torch.squeeze(torch.tensor(output[0])).detach().numpy()
-            img = img[:, :, np.newaxis]
-            img = img[:, :, 0]
-            io.imsave("dataset/train/train.png", img)
+            # # 输出看看
+            # img = torch.squeeze(torch.tensor(output[0][0])).detach().numpy()
+            # img = img[:, :, np.newaxis]
+            # img = img[:, :, 0]
+            # io.imsave("dataset/train/train1.png", img)
 
-            # 输出看看
-            img = torch.squeeze(torch.tensor(y[0].numpy())).detach().numpy()
-            img = img[:, :, np.newaxis]
-            img = img[:, :, 0]
-            io.imsave("dataset/train/label.png", img)
+            # img = torch.squeeze(torch.tensor(output[0][1])).detach().numpy()
+            # img = img[:, :, np.newaxis]
+            # img = img[:, :, 0]
+            # io.imsave("dataset/train/train2.png", img)
+
+            # # 输出看看
+            # img = torch.squeeze(torch.tensor(y[0].numpy())).detach().numpy()
+            # img = img[:, :, np.newaxis]
+            # img = img[:, :, 0]
+            # io.imsave("dataset/train/label.png", img)
 
             # 转为tensor之后放入cuda
             output = torch.tensor(output, requires_grad=True)
@@ -97,8 +102,8 @@ def train_model(model, criterion, optimizer, dataload, num_epochs=50):
             # zero the parameter gradients
             optimizer.zero_grad()
             # 计算损失
-            # loss = criterion(output, labels.long()) # labels (b,c,h,w) output(b,h,w)
-            loss = criterion(output, labels)    # labels (b,c,h,w) output(b,c,h,w)
+            loss = criterion(output, torch.squeeze(labels, 1).long()) # labels (b,c,h,w) output(b,h,w)
+            # loss = criterion(output, labels)    # labels (b,c,h,w) output(b,c,h,w)
             # 反向更新参数
             loss.backward()     
             optimizer.step()
@@ -114,10 +119,10 @@ def train_model(model, criterion, optimizer, dataload, num_epochs=50):
 
 # 训练模型
 def train():
-    model = Unet(1, 1).to(device)
-    criterion = nn.BCEWithLogitsLoss()  # sigmoid函数+bceloss的组合，2分类
-    # criterion = nn.CrossEntropyLoss()     # softmax+nllloss组合
-    optimizer = optim.Adam(model.parameters())
+    model = Unet(1, 2).to(device)
+    # criterion = nn.BCEWithLogitsLoss()  # sigmoid函数+bceloss的组合，2分类
+    criterion = nn.CrossEntropyLoss()     # softmax+nllloss组合
+    optimizer = optim.SGD(model.parameters(),lr=0.01,momentum=0.99)
     train_dataset = TrainDataset("dataset/train/image",
                                  "dataset/train/label",
                                  transform=x_transforms,
@@ -141,19 +146,32 @@ def test():
     model.eval()    # 即使用模型到测试模式，不反向传播
     with torch.no_grad():   # 上下文管理器，被这部分圈起来的不会追踪梯度
         # enumerate可遍历的数组对象组合成一个(下标，数据)
-        for index, imgs in enumerate(dataloaders):
+        for index, x in enumerate(dataloaders):
+            # 切分图像导入 return (b,c,h,w)
+            mirror_img = mirro(x.numpy(), (696, 696), (92, 92))
+            # 镜像图像切片  return (n_pathces,c,h,w)
+            patches_img = extract_ordered_patches(mirror_img, (572, 572), (124, 124))
+
+            inputs = [] 
             outputs = []
-            for i in imgs:
-                out = model(i)
-                outputs.append(out.numpy())
+            # 一张图片的每一个patch输入网络,输出的图片储存起来做拼接
+            for input in patches_img:
+                inputs.append(input)
+                # 输入model
+                input = torch.tensor(np.array(inputs))
+                output = model(input)
+                for i in output.numpy(): 
+                    outputs.append(i)   # (n_patches, c, h, w)
+                inputs.clear()
             # 拼接
             outputs = np.array(outputs)
-            outputs = torch.tensor(rebuild_images(outputs,(512, 512), (124, 124)))
-            # 增加维度，（x*y*1维)
-            outputs = torch.squeeze(outputs).numpy()
-            img_y = outputs[:,:,np.newaxis]  
-            img_y = img_y[:, :, 0]
-            io.imsave("dataset/test/" + str(index) + "_predict.png", img_y)
+            output = rebuild_images(outputs, (512, 512), (124, 124))# (b,c,h,w)
+
+            # 输出看看
+            img = torch.squeeze(torch.tensor(output)).detach().numpy()
+            img = img[:, :, np.newaxis]
+            img = img[:, :, 0]
+            io.imsave("dataset/test/" + str(index) + "_predict.png", img)
 
 
 if __name__ == '__main__':

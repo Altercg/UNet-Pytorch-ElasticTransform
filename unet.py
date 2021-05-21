@@ -3,25 +3,16 @@ from torch import nn
 import torchvision.transforms as transforms
 
 # crop
-transform4 = transforms.Compose([
-    transforms.CenterCrop(56),
-    transforms.Normalize([0.5], [0.5])
-])
+transform4 = transforms.CenterCrop((56, 56))
 
-transform3 = transforms.Compose([
-    transforms.CenterCrop(104),
-    transforms.Normalize([0.5], [0.5])
-])
 
-transform2 = transforms.Compose([
-    transforms.CenterCrop(200),
-    transforms.Normalize([0.5], [0.5])
-])
+transform3 = transforms.CenterCrop((104, 104))
 
-transform1 = transforms.Compose([
-    transforms.CenterCrop(392),
-    transforms.Normalize([0.5], [0.5])
-])
+
+transform2 = transforms.CenterCrop((200, 200))
+
+
+transform1 = transforms.CenterCrop((392, 392))
 
 
 class DoubleConv(nn.Module):
